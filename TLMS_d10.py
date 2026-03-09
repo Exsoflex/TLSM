@@ -22,17 +22,18 @@ def coordenadas_relativas(lm):
 # Función para saber si un dedo está extendido
 def dedo_extendido(tip, pip, coords):
 
-    y_tip = coords[tip][1]
-    y_pip = coords[pip][1]
+    vertical = coords[tip][1] < coords[pip][1] - 0.02
+    horizontal = abs(coords[tip][0] - coords[pip][0]) > 0.04
 
-    x_tip = coords[tip][0]
-    x_pip = coords[pip][0]
-
-    return abs(y_tip - y_pip) > abs(x_tip - x_pip)
+    return vertical or horizontal
 
 # Función para saber si el pulgar esta extendido
-def pulgar_extendido(coords):
-    return coords[4][0] > coords[3][0]
+def pulgar_extendido(coords, label):
+
+    horizontal = abs(coords[4][0] - coords[3][0]) > 0.03
+    vertical = coords[4][1] < coords[3][1] - 0.02
+
+    return horizontal or vertical
 
 
 cap = cv2.VideoCapture(0)
@@ -58,7 +59,9 @@ with mp_hands.Hands(max_num_hands=1, min_detection_confidence=0.7) as hands:
 
         if resultado.multi_hand_landmarks:
 
-            for hand_landmarks in resultado.multi_hand_landmarks:
+            for hand_landmarks, handedness in zip(resultado.multi_hand_landmarks, resultado.multi_handedness):
+
+                label = handedness.classification[0].label
 
                 mp_drawing.draw_landmarks(
                     frame,
@@ -71,7 +74,7 @@ with mp_hands.Hands(max_num_hands=1, min_detection_confidence=0.7) as hands:
                 coords = coordenadas_relativas(lm)
                 
 
-                pulgar = pulgar_extendido(coords)
+                pulgar = pulgar_extendido(coords, label)
                 indice = dedo_extendido(8,6,coords)
                 medio = dedo_extendido(12,10,coords)
                 anular = dedo_extendido(16,14,coords)
@@ -79,29 +82,31 @@ with mp_hands.Hands(max_num_hands=1, min_detection_confidence=0.7) as hands:
 
                 dedos = [pulgar, indice, medio, anular, menique]
 
+                cv2.putText(frame, label,
+                            (10,80),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            1,
+                            (0,255,255),
+                            2)
+                
+                cv2.putText(frame, str(dedos),
+                            (10,400),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            1,
+                            (255,0,0),
+                            2)
+                
                 if dedos[1:] == [0,0,0,0]:
                     letra = "A"
 
-                elif dedos[1:] == [1,0,0,0]:
+                elif indice and not medio and not anular and not menique:
                     letra = "D"
 
-                elif dedos == [0,1,1,1,1]:
+                elif indice and medio and anular and menique:
                     letra = "B"
 
-                elif dedos == [1,0,0,0,1]:
+                elif pulgar and not indice and not medio and not anular and menique:
                     letra = "Y"
-
-                elif dedos == [1,1,0,0,0]:
-                    letra = "L"
-                    
-                elif dedos == [0,1,1,0,0]:
-                    letra = "U"
-                    
-                elif dedos == [0,1,1,1,0]:
-                    letra = "W"
-                    
-                elif dedos == [1,1,1,0,0]:
-                    letra = "H"
 
                 tiempo_actual = time.time()
 

@@ -26,7 +26,7 @@ cap = cv2.VideoCapture(0)
 letra = input("Ingresa la letra que quieres capturar: ").upper()
 
 contador = 0
-max_muestras = 200
+max_muestras = 300
 
 with mp_hands.Hands(
         max_num_hands=1,
@@ -53,9 +53,13 @@ with mp_hands.Hands(
 
                 fila = []
 
+                # coordenadas de la muñeca (landmark 0)
+                muñeca_x = hand_landmarks.landmark[0].x
+                muñeca_y = hand_landmarks.landmark[0].y
+
                 for lm in hand_landmarks.landmark:
-                    fila.append(lm.x)
-                    fila.append(lm.y)
+                    fila.append(lm.x - muñeca_x)
+                    fila.append(lm.y - muñeca_y)
 
                 fila.append(letra)
 

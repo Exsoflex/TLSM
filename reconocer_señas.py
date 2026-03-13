@@ -3,6 +3,21 @@ import mediapipe as mp
 import joblib
 import numpy as np
 from collections import deque, Counter
+import pyttsx3
+import threading
+
+def hablar(texto):
+
+    def _hablar():
+        engine = pyttsx3.init()
+        engine.setProperty('rate', 150)
+        engine.say(texto)
+        engine.runAndWait()
+        engine.stop()
+
+    hilo = threading.Thread(target=_hablar)
+    hilo.daemon = True
+    hilo.start()
 
 # cargar modelo entrenado
 modelo = joblib.load("modelo_señas.pkl")
@@ -14,6 +29,16 @@ cap = cv2.VideoCapture(0)
 
 # buffer para estabilidad
 buffer_predicciones = deque(maxlen=15)
+
+# texto formado
+texto = ""
+
+# control de letra actual
+letra_actual = ""
+letra_confirmada = ""
+
+# estabilidad mínima requerida
+MIN_VOTOS = 10
 
 with mp_hands.Hands(
     max_num_hands=1,
@@ -62,23 +87,73 @@ with mp_hands.Hands(
                 buffer_predicciones.append(prediccion[0])
 
                 if len(buffer_predicciones) == buffer_predicciones.maxlen:
-                    letra_mas_comun = Counter(buffer_predicciones).most_common(1)[0][0]
-                    letra_mostrada = letra_mas_comun
 
-        if letra_mostrada != "":
-            cv2.putText(
-                frame,
-                f"Letra: {letra_mostrada}",
-                (10, 50),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                1.5,
-                (0, 255, 0),
-                3
-            )
+                    conteo = Counter(buffer_predicciones)
+                    letra_mas_comun, votos = conteo.most_common(1)[0]
+
+                    # aplicar filtro de estabilidad
+                    if votos >= MIN_VOTOS:
+
+                        letra_mostrada = letra_mas_comun
+
+                        # si cambia la seña, guardar la anterior
+                        if letra_mas_comun != letra_actual:
+
+                            if letra_actual != "":
+                                texto += letra_actual
+
+                            letra_actual = letra_mas_comun
+
+        else:
+            # si la mano desaparece, guardar última letra
+            if letra_actual != "":
+                texto += letra_actual
+                letra_actual = ""
+
+        # mostrar letra detectada
+        cv2.putText(
+            frame,
+            f"Letra actual: {letra_mostrada}",
+            (10, 50),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1.2,
+            (0, 255, 0),
+            3
+        )
+
+        # mostrar texto formado
+        cv2.putText(
+            frame,
+            f"Texto: {texto}",
+            (10, 100),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1.2,
+            (255, 255, 255),
+            2
+        )
 
         cv2.imshow("Reconocimiento de señas", frame)
 
-        if cv2.waitKey(1) & 0xFF == 27:
+        tecla = cv2.waitKey(1) & 0xFF
+
+        # espacio
+        if tecla == 32:
+            texto += " "
+
+        # borrar
+        elif tecla == 8:
+            texto = texto[:-1]
+
+        # hablar (reiniciando motor)
+        elif tecla == 13:
+            hablar(texto)
+
+        # limpiar texto
+        elif tecla == ord('c'):
+            texto = ""
+
+        # salir
+        elif tecla == 27:
             break
 
 cap.release()

@@ -5,7 +5,7 @@ import numpy as np
 from collections import deque, Counter
 
 # cargar modelo entrenado
-modelo = joblib.load("modelo_señas.pkl")
+modelo = joblib.load("modelos/modelo_señas.pkl")
 
 mp_hands = mp.solutions.hands
 mp_drawing = mp.solutions.drawing_utils
